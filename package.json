@@ -1,8 +1,8 @@
 {
-  "name": "listener-ecs",
+  "name": "UdpNlbEcsStack",
   "version": "0.1.0",
   "bin": {
-    "listener-ecs": "bin/listener-ecs.js"
+    "listener-ecs": "bin/udp-nlb-ecs.js"
   },
   "scripts": {
     "build": "tsc",

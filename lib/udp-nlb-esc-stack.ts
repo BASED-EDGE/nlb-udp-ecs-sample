@@ -1,13 +1,17 @@
 import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
-import { Cluster, ContainerImage, Ec2Service, Ec2TaskDefinition, FargateService, TaskDefinition, Protocol as ECSProtocol, AwsLogDriver, PortMapping } from 'aws-cdk-lib/aws-ecs'
-import { InstanceType, Vpc } from 'aws-cdk-lib/aws-ec2'
+import {
+  NetworkMode,
+  Cluster, ContainerImage, Ec2Service, Ec2TaskDefinition, FargateService, TaskDefinition, Protocol as ECSProtocol, AwsLogDriver, PortMapping
+} from 'aws-cdk-lib/aws-ecs'
+import { InstanceType, Peer, Port, SecurityGroup, Vpc, Protocol as EC2Protocol } from 'aws-cdk-lib/aws-ec2'
 import { NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2'
 import { NetworkLoadBalancedEc2Service, NetworkLoadBalancedFargateService } from 'aws-cdk-lib/aws-ecs-patterns'
 import { Repository } from 'aws-cdk-lib/aws-ecr'
 import { Effect, Policy, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
-export class ListenerEcsStack extends cdk.Stack {
+import { DockerImageAsset, } from 'aws-cdk-lib/aws-ecr-assets'
+export class UdpNlbEcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props)
 
@@ -22,11 +26,13 @@ export class ListenerEcsStack extends cdk.Stack {
       instanceType: new InstanceType('t3.small'),
       minCapacity: 1,
       maxCapacity: 3,
+
     })
 
     const internalLB = new NetworkLoadBalancer(this, 'internal', {
       vpc: vpc,
-      internetFacing: true
+      internetFacing: true,
+
     })
 
     const executionRole = new Role(this, 'exeRole', {
@@ -45,20 +51,23 @@ export class ListenerEcsStack extends cdk.Stack {
     })
 
     const nameTaskDefinition = new Ec2TaskDefinition(this, 'name-task-definition', {
-      executionRole
+      executionRole,
+      networkMode: NetworkMode.AWS_VPC
     })
     const PORT = 9999
     const HEALTH_PORT = 8888
 
     nameTaskDefinition.addContainer('dummyContainer', {
-      image: ContainerImage.fromEcrRepository(Repository.fromRepositoryArn(this, 'repo', 'TODO')),
+      image: ContainerImage.fromDockerImageAsset(new DockerImageAsset(this, 'docker', {
+        directory: './app',
+      })),
       memoryLimitMiB: 128,
       environment: {
         PORT: '' + PORT,
         HEALTH_PORT: '' + HEALTH_PORT
       },
       logging: new AwsLogDriver({ streamPrefix: 'foobar' }),
-      command: ['start:udp-dummy'],
+      command: ['start'],
 
       portMappings: [
 
@@ -75,13 +84,27 @@ export class ListenerEcsStack extends cdk.Stack {
       ]
     })
 
+    // scope down it is being eval'd as client ip today....
+    const sg = new SecurityGroup(this, 'sg', { vpc, allowAllOutbound: true })
+    sg.addIngressRule(Peer.anyIpv4(), Port.udp(PORT))
+    sg.addIngressRule(Peer.anyIpv4(), Port.tcp(HEALTH_PORT))
+
+    // todo: foreach ->
+    // sg.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.udp(PORT))
+    // sg.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.udp(PORT))
+    // sg.addIngressRule(Peer.ipv4(vpc.publicSubnets[0].ipv4CidrBlock), Port.tcp(HEALTH_PORT))
+    // sg.addIngressRule(Peer.ipv4(vpc.publicSubnets[1].ipv4CidrBlock), Port.tcp(HEALTH_PORT))
+
+
+
+
     const nameService = new Ec2Service(this, 'service', {
       cluster: cluster,
       desiredCount: 1,
 
-      taskDefinition: nameTaskDefinition
+      taskDefinition: nameTaskDefinition,
+      securityGroups: [sg]
     })
-
 
     const internalListener = internalLB.addListener('PublicListener', { port: PORT, protocol: Protocol.UDP, })
 

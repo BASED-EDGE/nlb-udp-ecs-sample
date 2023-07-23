@@ -1,0 +1,12 @@
+{
+  "name": "app",
+  "scripts": {
+    "build": "tsc",
+    "start": "node index.js"
+  },
+  "devDependencies": {
+    "@tsconfig/node20": "^1",
+    "@types/node": "^20",
+    "typescript": "^5"
+  }
+}

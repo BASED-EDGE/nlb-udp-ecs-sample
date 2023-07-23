@@ -9,10 +9,8 @@ expose second listener on tcp on different port
 
 lets us get nlb regiseter as healthy
 
-todo
-sample docker container - shared healthy state b/w 2 servers
-confirm on SG rules (had to manually open up ec2)
-rebuild code using ecs lib
+#todo
+better health check for container + target (maybe have it confirm connectivity)
 
 # Welcome to your CDK TypeScript project
 

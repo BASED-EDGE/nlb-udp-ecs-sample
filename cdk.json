@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/listener-ecs.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/udp-nlb-ecs.ts",
   "watch": {
     "include": [
       "**"
